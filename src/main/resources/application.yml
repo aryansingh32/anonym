@@ -1,0 +1,101 @@
+# ANonym Backend Configuration
+
+server:
+  port: 8080
+  # Enable HTTP/2 for better performance
+  http2:
+    enabled: true
+  # Compression for responses
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  # Error handling
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+
+spring:
+  application:
+    name: anonym-messenger
+
+  # Redis Configuration
+  data:
+    redis:
+      host: ${REDIS_URL}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl: true
+      # Connection pool settings
+      lettuce:
+        pool:
+          max-active: 20
+          max-idle: 10
+          min-idle: 5
+          max-wait: 2000ms
+      # Timeout settings
+      timeout: 3000ms
+      connect-timeout: 2000ms
+
+  # Jackson JSON configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    time-zone: UTC
+    default-property-inclusion: non_null
+
+  # Logging configuration
+  logging:
+    level:
+      root: INFO
+      com.messagingCluster.Messenger: DEBUG
+      org.springframework.security: DEBUG
+      org.springframework.web.socket: DEBUG
+    pattern:
+      console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+      file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Spring Actuator for health checks
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+  health:
+    redis:
+      enabled: true
+
+# WebSocket Configuration
+websocket:
+  allowed-origins: "*"
+  heartbeat-interval: 25000
+  send-timeout: 15000
+  send-buffer-size: 524288
+  receive-buffer-size: 524288
+
+# Application-specific configuration
+anonym:
+  # Session configuration
+  session:
+    ttl-minutes: 120
+    max-ttl-hours: 24
+
+  # Rate limiting
+  rate-limit:
+    registration:
+      max-per-ip: 5
+      window-hours: 1
+    messaging:
+      max-per-minute: 30
+      window-seconds: 60
+
+  # Security
+  security:
+    max-message-size-bytes: 100000
+    allowed-origins:
+      - "*"
