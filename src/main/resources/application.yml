@@ -25,7 +25,7 @@ spring:
   data:
     redis:
       host: ${REDIS_URL:crossover.proxy.rlwy.net}
-      port: ${REDIS_PORT:6379}
+      port: ${REDIS_PORT:56390}
       password: ${REDIS_PASSWORD:TcozXIpZDGVkfadKmsTGiymMzNaBeikO}
       
       # Connection pool settings
