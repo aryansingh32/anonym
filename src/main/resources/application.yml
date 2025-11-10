@@ -1,16 +1,11 @@
-# ANonym Backend Configuration
-
 server:
   address: 0.0.0.0
   port: ${PORT:8080}
-  # Enable HTTP/2 for better performance
   http2:
     enabled: true
-  # Compression for responses
   compression:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain
-  # Error handling
   error:
     include-message: always
     include-binding-errors: always
@@ -20,15 +15,16 @@ server:
 spring:
   application:
     name: anonym-messenger
-
+  
   # Redis Configuration
   data:
     redis:
       host: ${REDIS_URL:redis.railway.internal}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:TcozXIpZDGVkfadKmsTGiymMzNaBeikO}
+      port: ${REDISPORT:6379}
+      password: ${REDIS_PASSWORD:}
+      # REMOVE SSL - Railway internal Redis doesn't use SSL
       ssl:
-        enabled: true
+        enabled: false
       
       # Connection pool settings
       lettuce:
@@ -38,8 +34,8 @@ spring:
           min-idle: 5
           max-wait: 2000ms
       # Timeout settings
-      timeout: 3000ms
-      connect-timeout: 2000ms
+      timeout: 5000ms
+      connect-timeout: 5000ms
 
   # Jackson JSON configuration
   jackson:
@@ -48,16 +44,17 @@ spring:
     time-zone: UTC
     default-property-inclusion: non_null
 
-  # Logging configuration
-  logging:
-    level:
-      root: INFO
-      com.messagingCluster.Messenger: DEBUG
-      org.springframework.security: DEBUG
-      org.springframework.web.socket: DEBUG
-    pattern:
-      console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
-      file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.messagingCluster.Messenger: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web.socket: DEBUG
+    org.springframework.data.redis: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
 
 # Spring Actuator for health checks
 management:
@@ -68,7 +65,7 @@ management:
       base-path: /actuator
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: always
   health:
     redis:
       enabled: true
@@ -83,12 +80,9 @@ websocket:
 
 # Application-specific configuration
 anonym:
-  # Session configuration
   session:
     ttl-minutes: 120
     max-ttl-hours: 24
-
-  # Rate limiting
   rate-limit:
     registration:
       max-per-ip: 5
@@ -96,8 +90,6 @@ anonym:
     messaging:
       max-per-minute: 30
       window-seconds: 60
-
-  # Security
   security:
     max-message-size-bytes: 100000
     allowed-origins:
