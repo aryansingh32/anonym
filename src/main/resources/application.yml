@@ -24,9 +24,9 @@ spring:
   # Redis Configuration
   data:
     redis:
-      host: ${REDIS_URL}
+      host: ${REDIS_URL:redis.railway.internal}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD:TcozXIpZDGVkfadKmsTGiymMzNaBeikO}
       
       # Connection pool settings
       lettuce:
