@@ -27,6 +27,8 @@ spring:
       host: ${REDIS_URL:redis.railway.internal}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:TcozXIpZDGVkfadKmsTGiymMzNaBeikO}
+      ssl:
+        enabled: true
       
       # Connection pool settings
       lettuce:
