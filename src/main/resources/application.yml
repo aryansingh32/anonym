@@ -20,9 +20,9 @@ spring:
   data:
     redis:
      # url: redis://:${REDIS_PASSWORD:}@${REDIS_URL:redis.railway.internal}:${REDISPORT:6379}
-      host: ${REDIS_URL:redis.railway.internal}
+      host: {REDIS_HOST}
       port: ${REDISPORT:6379}
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD}
       #REMOVE SSL - Railway internal Redis doesn't use SSL
       ssl:
         enabled: false
