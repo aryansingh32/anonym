@@ -24,7 +24,7 @@ spring:
   # Redis Configuration
   data:
     redis:
-      host: ${REDIS_URL:redis.railway.internal}
+      host: ${REDIS_URL:crossover.proxy.rlwy.net}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:TcozXIpZDGVkfadKmsTGiymMzNaBeikO}
       
