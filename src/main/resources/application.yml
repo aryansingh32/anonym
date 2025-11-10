@@ -1,6 +1,7 @@
 # ANonym Backend Configuration
 
 server:
+  address: 0.0.0.0
   port: 8080
   # Enable HTTP/2 for better performance
   http2:
