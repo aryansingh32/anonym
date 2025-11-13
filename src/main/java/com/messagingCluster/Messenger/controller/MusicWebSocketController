@@ -1,0 +1,148 @@
+// ========================================
+// FILE 2: MusicWebSocketController.java
+// WebSocket endpoints for real-time sync
+// ========================================
+package com.messagingCluster.Messenger.controller;
+
+import com.messagingCluster.Messenger.model.MusicSyncMessage;
+import com.messagingCluster.Messenger.services.MusicChannelService;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.handler.annotation.MessageMapping;
+import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Controller;
+
+import java.util.*;
+
+@Controller
+@RequiredArgsConstructor
+@Slf4j
+public class MusicWebSocketController {
+
+    private final SimpMessagingTemplate messagingTemplate;
+    private final MusicChannelService musicChannelService;
+
+    /**
+     * Handle music sync messages (play, pause, seek, queue)
+     */
+    @MessageMapping("/musicSync")
+    public void handleMusicSync(
+        @Payload MusicSyncMessage message,
+        Authentication authentication
+    ) {
+        String authenticatedUser = authentication.getName();
+        
+        log.info("🎵 Music sync: {} from {} in channel {}",
+            message.getAction(), authenticatedUser, message.getChannelId());
+        
+        // Validate sender
+        if (!authenticatedUser.equals(message.getUserCode())) {
+            log.error("🚨 Impersonation attempt detected!");
+            return;
+        }
+        
+        String channelId = message.getChannelId();
+        
+        // Process action
+        switch (message.getAction()) {
+            case "join_channel":
+                musicChannelService.addMemberToChannel(channelId, authenticatedUser);
+                break;
+                
+            case "leave_channel":
+                musicChannelService.removeMemberFromChannel(channelId, authenticatedUser);
+                break;
+                
+            case "play":
+            case "pause":
+            case "resume":
+            case "seek":
+            case "stop":
+                // Update channel state
+                musicChannelService.updateChannelState(channelId, message);
+                break;
+                
+            case "queue_add":
+                musicChannelService.addToQueue(channelId, message.getTrackData());
+                break;
+                
+            case "queue_remove":
+                musicChannelService.removeFromQueue(channelId, message.getIndex());
+                break;
+                
+            case "queue_reorder":
+                musicChannelService.reorderQueue(
+                    channelId,
+                    message.getOldIndex(),
+                    message.getNewIndex()
+                );
+                break;
+                
+            case "request_sync":
+                // Send current channel state to requester
+                sendChannelStateToUser(channelId, authenticatedUser);
+                return; // Don't broadcast
+        }
+        
+        // Broadcast to all channel members
+        broadcastToChannel(channelId, message);
+    }
+
+    /**
+     * Handle channel chat messages
+     */
+    @MessageMapping("/channelChat")
+    public void handleChannelChat(
+        @Payload Map<String, Object> message,
+        Authentication authentication
+    ) {
+        String authenticatedUser = authentication.getName();
+        String channelId = (String) message.get("channelId");
+        
+        log.info("💬 Chat in channel {} from {}", channelId, authenticatedUser);
+        
+        // Validate sender
+        if (!authenticatedUser.equals(message.get("sender"))) {
+            log.error("🚨 Chat impersonation attempt!");
+            return;
+        }
+        
+        // Add timestamp
+        message.put("timestamp", System.currentTimeMillis());
+        message.put("type", "channel_chat");
+        
+        // Broadcast to all channel members
+        messagingTemplate.convertAndSend(
+            "/topic/channel/" + channelId,
+            message
+        );
+    }
+
+    // ============ HELPER METHODS ============
+
+    private void broadcastToChannel(String channelId, MusicSyncMessage message) {
+        message.setType("music_sync");
+        messagingTemplate.convertAndSend(
+            "/topic/channel/" + channelId,
+            message
+        );
+        
+        log.debug("📤 Broadcast {} to channel {}", message.getAction(), channelId);
+    }
+
+    private void sendChannelStateToUser(String channelId, String userCode) {
+        Map<String, Object> state = musicChannelService.getChannelState(channelId);
+        
+        if (state != null) {
+            messagingTemplate.convertAndSendToUser(
+                userCode,
+                "/queue/sync",
+                state
+            );
+            
+            log.debug("📤 Sent channel state to {}", userCode);
+        }
+    }
+}
