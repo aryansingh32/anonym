@@ -24,8 +24,7 @@ import java.util.*;
  * - Playback synchronization
  * - Channel chat
  */
-@Controller
-@RestController
+@RestController  // ✅ ONLY use @RestController for REST endpoints
 @RequestMapping("/api/music")
 @RequiredArgsConstructor
 @Slf4j
@@ -43,6 +42,8 @@ public class MusicSyncController {
     @GetMapping("/spotify/search")
     public ResponseEntity<?> searchSpotify(@RequestParam String q) {
         try {
+            log.info("🔍 Spotify search request: {}", q);
+            
             String accessToken = musicChannelService.getSpotifyAccessToken();
             
             String url = "https://api.spotify.com/v1/search?q=" + q + "&type=track&limit=20";
@@ -60,6 +61,7 @@ public class MusicSyncController {
                 Map.class
             );
             
+            log.info("✅ Spotify search successful");
             return ResponseEntity.ok(response.getBody());
             
         } catch (Exception e) {
@@ -76,6 +78,8 @@ public class MusicSyncController {
     @GetMapping("/youtube/search")
     public ResponseEntity<?> searchYouTube(@RequestParam String q) {
         try {
+            log.info("🔍 YouTube search request: {}", q);
+            
             String apiKey = musicChannelService.getYouTubeApiKey();
             
             String url = "https://www.googleapis.com/youtube/v3/search" +
@@ -88,6 +92,7 @@ public class MusicSyncController {
             
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
+            log.info("✅ YouTube search successful");
             return ResponseEntity.ok(response);
             
         } catch (Exception e) {
@@ -169,7 +174,50 @@ public class MusicSyncController {
         }
     }
 
-    // ============ WEBSOCKET ENDPOINTS ============
+    // ============ HELPER METHODS ============
+
+    /**
+     * Broadcast message to all members in a channel
+     */
+    private void broadcastToChannel(String channelId, MusicSyncMessage message) {
+        message.setType("music_sync");
+        messagingTemplate.convertAndSend(
+            "/topic/channel/" + channelId,
+            message
+        );
+        
+        log.debug("📤 Broadcast {} to channel {}", message.getAction(), channelId);
+    }
+
+    /**
+     * Send current channel state to a specific user
+     */
+    private void sendChannelStateToUser(String channelId, String userCode) {
+        Map<String, Object> state = musicChannelService.getChannelState(channelId);
+        
+        if (state != null) {
+            messagingTemplate.convertAndSendToUser(
+                userCode,
+                "/queue/sync",
+                state
+            );
+            
+            log.debug("📤 Sent channel state to {}", userCode);
+        }
+    }
+}
+
+/**
+ * SEPARATE Controller for WebSocket operations
+ * This must be a separate @Controller (not @RestController)
+ */
+@Controller
+@RequiredArgsConstructor
+@Slf4j
+class MusicWebSocketController {
+
+    private final SimpMessagingTemplate messagingTemplate;
+    private final MusicChannelService musicChannelService;
 
     /**
      * Handle music sync messages (play, pause, seek, queue)
@@ -267,11 +315,6 @@ public class MusicSyncController {
         );
     }
 
-    // ============ HELPER METHODS ============
-
-    /**
-     * Broadcast message to all members in a channel
-     */
     private void broadcastToChannel(String channelId, MusicSyncMessage message) {
         message.setType("music_sync");
         messagingTemplate.convertAndSend(
@@ -282,9 +325,6 @@ public class MusicSyncController {
         log.debug("📤 Broadcast {} to channel {}", message.getAction(), channelId);
     }
 
-    /**
-     * Send current channel state to a specific user
-     */
     private void sendChannelStateToUser(String channelId, String userCode) {
         Map<String, Object> state = musicChannelService.getChannelState(channelId);
         
