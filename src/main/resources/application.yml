@@ -3,8 +3,8 @@ youtube:
     key: ${YOUTUBE_API_KEY:AIzaSyB-VkV46IOlha6K9riel3VSLArnryMl27o}
 spotify:
   client:
-  id: ${SPOTIFY_CLIENT_ID:3bf4b400e02548dc985801bfc5cf89d4}
-  secret: ${SPOTIFY_CLIENT_SECRET:a5b1628552214274927aa643176d0b3e}
+    id: ${SPOTIFY_CLIENT_ID:3bf4b400e02548dc985801bfc5cf89d4}
+    secret: ${SPOTIFY_CLIENT_SECRET:a5b1628552214274927aa643176d0b3e}
 
   
 server:
