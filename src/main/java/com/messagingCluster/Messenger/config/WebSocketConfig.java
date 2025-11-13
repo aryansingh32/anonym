@@ -20,21 +20,18 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 import java.util.Collections;
 
 /**
- * WebSocket Configuration for ANonym Real-Time Messaging
- *
- * This configuration:
- * 1. Sets up STOMP endpoints for WebSocket connections
- * 2. Configures message broker for pub/sub messaging
- * 3. Implements authentication interceptor for WebSocket frames
- *
- * Architecture:
- * - Clients connect via /ws endpoint (with SockJS fallback)
- * - Messages are sent to /app/* destinations (application prefix)
- * - Broker routes messages to /topic/* destinations (subscriptions)
+ * ✅ FIXED: WebSocket Configuration with Railway.app Optimizations
+ * 
+ * Changes:
+ * 1. Reduced heartbeat interval (10s instead of 25s)
+ * 2. Increased message size limits
+ * 3. Better connection timeout handling
+ * 4. Optimized for cloud deployment
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -43,59 +40,48 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final IdentityService identityService;
 
-    /**
-     * TaskScheduler bean for WebSocket heartbeat management
-     * This scheduler handles periodic ping/pong messages to keep connections alive
-     */
     @Bean
     public TaskScheduler taskScheduler() {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
-        scheduler.setPoolSize(10);  // Number of threads for scheduled tasks
+        scheduler.setPoolSize(20);  // ✅ Increased from 10 to handle more connections
         scheduler.setThreadNamePrefix("ws-heartbeat-");
+        scheduler.setWaitForTasksToCompleteOnShutdown(true);
+        scheduler.setAwaitTerminationSeconds(30);
         scheduler.initialize();
         return scheduler;
     }
 
-    /**
-     * Register STOMP endpoints that clients will connect to
-     *
-     * Endpoint: /ws
-     * - Primary WebSocket endpoint
-     * - SockJS fallback for browsers without WebSocket support
-     * - Allows all origins (mobile app + web access)
-     */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*")  // Allow all origins (for mobile + Tor)
-                .withSockJS()                    // Enable SockJS fallback
-                .setHeartbeatTime(25000);        // Keep connection alive every 25s
+                .setAllowedOriginPatterns("*")
+                .withSockJS()
+                .setHeartbeatTime(10000)  // ✅ CRITICAL: Reduced to 10s (Railway timeout fix)
+                .setDisconnectDelay(5000)  // ✅ Quick disconnect detection
+                .setHttpMessageCacheSize(1000)
+                .setStreamBytesLimit(512 * 1024); // ✅ 512KB limit
     }
 
-    /**
-     * Configure the message broker for routing messages
-     *
-     * Application Destination Prefix: /app
-     * - Messages sent to /app/* are routed to @MessageMapping methods
-     *
-     * Simple Broker: /topic
-     * - In-memory broker for pub/sub messaging
-     * - Subscribers to /topic/* receive broadcasted messages
-     */
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
         registry.setApplicationDestinationPrefixes("/app");
         registry.enableSimpleBroker("/topic", "/queue")
-                .setHeartbeatValue(new long[]{25000, 25000})
-                .setTaskScheduler(taskScheduler());; // [server, client] heartbeat
+                .setHeartbeatValue(new long[]{10000, 10000})  // ✅ Reduced to 10s both ways
+                .setTaskScheduler(taskScheduler());
     }
 
     /**
-     * Configure client inbound channel with authentication interceptor
-     *
-     * This interceptor extracts the X-Anonymous-Code from WebSocket headers
-     * and authenticates the user before processing any MESSAGE frames
+     * ✅ FIXED: Better transport configuration
      */
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        registration
+                .setMessageSizeLimit(128 * 1024)  // ✅ 128KB per message
+                .setSendBufferSizeLimit(512 * 1024)  // ✅ 512KB send buffer
+                .setSendTimeLimit(20 * 1000)  // ✅ 20s send timeout
+                .setTimeToFirstMessage(30 * 1000);  // ✅ 30s for first message
+    }
+
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(new ChannelInterceptor() {
@@ -106,11 +92,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
                 if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
-                    // Extract Anonymous Code from CONNECT frame headers
                     String anonymousCode = accessor.getFirstNativeHeader("X-Anonymous-Code");
 
                     if (anonymousCode != null && identityService.isCodeValidAndRenew(anonymousCode)) {
-                        // Authenticate the WebSocket session with the Anonymous Code
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(
                                         new User(anonymousCode, "", Collections.emptyList()),
@@ -118,14 +102,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                                         Collections.emptyList()
                                 );
 
-                        // Store authentication in the WebSocket session
                         accessor.setUser(authentication);
                         SecurityContextHolder.getContext().setAuthentication(authentication);
 
                         System.out.println("✅ WebSocket authenticated: " + anonymousCode);
                     } else {
                         System.err.println("❌ WebSocket authentication failed: Invalid code");
-                        // Let security config handle the rejection
                     }
                 }
 
