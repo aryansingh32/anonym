@@ -48,9 +48,18 @@ public class SecurityConfig {
                         .requestMatchers("/api/identity/register").permitAll()
 
                         // 3. Health check endpoint (for monitoring/load balancers)
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers("/api/health", "/api/health/**", "/actuator/health").permitAll()
+
+                        // 4. Error handling
+                        .requestMatchers("/error").permitAll()
 
                         // PROTECTED ENDPOINTS
+                        
+                        // Music API endpoints - require authentication
+                        .requestMatchers("/api/music/**").authenticated()
+                        
+                        // Identity status/revoke - require authentication
+                        .requestMatchers("/api/identity/**").authenticated()
 
                         // All other REST API calls require authentication
                         .anyRequest().authenticated()
